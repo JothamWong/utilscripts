@@ -117,9 +117,8 @@ if __name__ == "__main__":
     proj_context_str = "\n\n---\n\n".join(proj_context_str_lst)
     # For each file, we will summarize it with respect to the entire project
     all_summaries = {}
-    for filename, file_contents in file_map.items():
-        filename = os.path.basename(filename)
-        relative_filepath = os.path.relpath(filename, input_project)
+    for full_filename, file_contents in file_map.items():
+        relative_filepath = os.path.relpath(full_filename, input_project)
         # TODO: If the project is very large, the project context str might exceed
         #       the model token limits. How might we circumvent this?
         prompt_message = (
@@ -137,15 +136,16 @@ if __name__ == "__main__":
         )
 
         try:
-            logger.info(f"Summarizing file: {filename}")
+            logger.info(f"Summarizing file: {relative_filepath}")
             response: ChatResponse = chat(
                 model=model_name, messages=[{"role": "user", "content": prompt_message}]
             )
-            all_summaries[filename] = response.get("message", {}).get(
+            all_summaries[relative_filepath] = response.get("message", {}).get(
                 "content", "No summary provided."
             )
-            logging.info(all_summaries[filename])
+            logging.info(all_summaries[relative_filepath])
         except Exception as e:
+            # One possible error is too long context (?)
             logging.error(f"Error summarizing file {filename}: {e}")
             all_summaries[filename] = "Error occurred during summarization."
 
