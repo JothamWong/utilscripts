@@ -121,7 +121,7 @@ if __name__ == "__main__":
         filename = os.path.basename(filename)
         relative_filepath = os.path.relpath(filename, input_project)
         # TODO: If the project is very large, the project context str might exceed
-        #       the model token limits.
+        #       the model token limits. How might we circumvent this?
         prompt_message = (
             f"You are an expert code assistant. Below is the content of several files from a software project. "
             f"Your task is to summarize one specific file in the context of the entire project.\n\n"
