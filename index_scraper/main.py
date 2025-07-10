@@ -26,6 +26,9 @@ if __name__ == "__main__":
         "--url", "-u", type=str, required=True, help="URL of the index site to scrape"
     )
     parser.add_argument(
+        "--extensions", "-e", type=str, required=False, help="File extensions to get, comma separated", default="pdf,md"
+    )
+    parser.add_argument(
         "--output_dir",
         "-o",
         type=str,
@@ -35,7 +38,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     base_url = args.url
-
+    extensions = set(args.extensions.split(","))
+    
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
@@ -70,7 +74,6 @@ if __name__ == "__main__":
         link_text = link_tag.get_text(strip=True)
 
         print(f"Link {i + 1} text: {link_text} raw href: {href}")
-
         if not href:
             print("No href found, skipping...")
             continue
@@ -92,6 +95,10 @@ if __name__ == "__main__":
 
         if href.lower().startswith("javascript:"):
             print(f"Skipping javascript link: {href}")
+            continue
+        
+        if href.lower().split(".")[-1] not in extensions:
+            print(f"Skipping due to extension: {href}")
             continue
 
         # Construct full URL for link using urljoin, which handles both relative
