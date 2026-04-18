@@ -1,7 +1,7 @@
 import argparse
 import os
 import re
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse, ParseResult
 
 import bs4
 import requests
@@ -26,21 +26,7 @@ IGNORE_LINK_TEXTS = frozenset(
 IGNORE_HREF_PATTERNS = ("?C=N", "?C=M", "?C=S", "?C=D")
 
 
-def sanitize_filename(filename, default_name="downloaded_file.html"):
-    if not filename:
-        return default_name
-    # Decodes URL-encoded characters (e.g.: %20 -> space)
-    name = unquote(filename)
-    # Replace invalid chars with underscores
-    name = re.sub(r"[^\w.\-_]", "_", name)
-    # Collapse multiple underscores into a single underscore
-    name = re.sub(r"_+", "_", name)
-    # Removes leading/trailing underscores, dots, and spaces
-    name = name.strip("._ ")
-    return name
-
-
-def main():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Scrape an index site.")
     parser.add_argument(
         "--url", "-u", type=str, required=True, help="URL of the index site to scrape"
@@ -60,23 +46,39 @@ def main():
         required=True,
         help="Path to the output dir to save the scraped data",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    base_url = args.url
-    extensions = set(args.extensions.split(","))
 
-    output_dir = args.output_dir
-    os.makedirs(output_dir, exist_ok=True)
+def sanitize_filename(filename, default_name="downloaded_file.html"):
+    if not filename:
+        return default_name
+    # Decodes URL-encoded characters (e.g.: %20 -> space)
+    name = unquote(filename)
+    # Replace invalid chars with underscores
+    name = re.sub(r"[^\w.\-_]", "_", name)
+    # Collapse multiple underscores into a single underscore
+    name = re.sub(r"_+", "_", name)
+    # Removes leading/trailing underscores, dots, and spaces
+    name = name.strip("._ ")
+    return name
 
+
+def fetch_page(url: str) -> bs4.BeautifulSoup:
     try:
-        response = requests.get(base_url, timeout=REQUEST_TIMEOUT_PAGE)
+        response = requests.get(url, timeout=REQUEST_TIMEOUT_PAGE)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
         exit(1)
 
-    soup = bs4.BeautifulSoup(response.text, "html.parser")
-    links = soup.find_all("a")
+    return bs4.BeautifulSoup(response.text, "html.parser")
+
+
+def filter_links(
+    links: list[bs4.element.Tag],
+    extensions: set[str],
+) -> list[str]:
+    hrefs = []
 
     for i, link_tag in enumerate(links):
         href = link_tag.get("href")
@@ -110,51 +112,68 @@ def main():
             print(f"Skipping due to extension: {href}")
             continue
 
-        # Construct full URL for link using urljoin, which handles both relative
-        # and absolute file links
-        download_url = urljoin(base_url, href)
-        parsed_download_url = urlparse(download_url)
-        # Skip non-HTTP/HTTPs links
-        if parsed_download_url.scheme not in ["http", "https"]:
-            continue
+        hrefs.append(href)
 
-        try:
-            print(f"Trying to download {download_url} ({i + 1}/{len(links)})")
-            link_response = requests.get(
-                download_url, timeout=REQUEST_TIMEOUT_FILE, stream=True
+    return hrefs
+
+
+def download_file(url: ParseResult, output_dir: str) -> None:
+    if url.scheme not in ["http", "https"]:
+        return
+    download_url = url.geturl()
+    try:
+        link_response = requests.get(
+            download_url, timeout=REQUEST_TIMEOUT_FILE, stream=True
+        )
+        link_response.raise_for_status()
+        # Determine pathname for downloaded content
+        path_component = url.path
+        filename = os.path.basename(path_component)
+        if not filename:
+            filename = "index.html"
+        sanitized_filename = sanitize_filename(filename)
+        # Handle potential collisions
+        final_output_path = os.path.join(output_dir, sanitized_filename)
+        counter = 1
+        temp_filename_base, temp_filename_ext = os.path.splitext(sanitized_filename)
+        while os.path.exists(final_output_path):
+            final_output_path = os.path.join(
+                output_dir,
+                f"{temp_filename_base}_{counter}{temp_filename_ext}",
             )
-            link_response.raise_for_status()
-            # Determine pathname for downloaded content
-            path_component = parsed_download_url.path
-            filename = os.path.basename(path_component)
-            if not filename:
-                filename = "index.html"
-            sanitized_filename = sanitize_filename(filename)
-            # Handle potential collisions
-            final_output_path = os.path.join(output_dir, sanitized_filename)
-            counter = 1
-            temp_filename_base, temp_filename_ext = os.path.splitext(sanitized_filename)
-            while os.path.exists(final_output_path):
-                final_output_path = os.path.join(
-                    output_dir,
-                    f"{temp_filename_base}_{counter}{temp_filename_ext}",
-                )
-                counter += 1
-            with open(final_output_path, "wb") as f:
-                for chunk in link_response.iter_content(chunk_size=CHUNK_SIZE):
-                    f.write(chunk)
-            print(f"Downloaded {download_url} to {final_output_path}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error downloading {download_url}: {e}")
-            continue
-        except IOError as e:
-            print(f"Error writing to file {final_output_path}: {e}")
-            continue
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            continue
-        finally:
-            print("-" * 30)
+            counter += 1
+        with open(final_output_path, "wb") as f:
+            for chunk in link_response.iter_content(chunk_size=CHUNK_SIZE):
+                f.write(chunk)
+        print(f"Downloaded {download_url} to {final_output_path}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading {download_url}: {e}")
+    except IOError as e:
+        print(f"Error writing to file {final_output_path}: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    finally:
+        print("-" * 30)
+
+
+def main():
+    args = parse_args()
+    
+    base_url = args.url
+    soup = fetch_page(base_url)
+    
+    links = soup.find_all("a")
+    extensions = set(args.extensions.split(","))
+    hrefs = filter_links(links, extensions)
+    
+    output_dir = args.output_dir
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for href in hrefs:
+        download_url = urljoin(args.url, href)
+        parsed_download_url = urlparse(download_url)
+        download_file(parsed_download_url, output_dir)
+
     print(f"Finished processing {base_url}")
 
 
