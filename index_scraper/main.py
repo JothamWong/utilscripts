@@ -167,9 +167,8 @@ def download_file(session: requests.Session, url: ParseResult, output_dir: str) 
 def main():
     args = parse_args()
 
-    base_url = args.url
-
     with requests.Session() as session:
+        base_url = args.url
         session.headers.update({"User-Agent": USER_AGENT})
         soup = fetch_page(session, base_url)
 
