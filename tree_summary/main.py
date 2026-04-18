@@ -61,7 +61,7 @@ def print_summaries_tree(project_name: str, all_summaries: dict):
     _recursive_print_tree_items(file_tree_data, prefix="")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Summarize a project.")
     parser.add_argument(
         "--input_project",
@@ -151,3 +151,7 @@ if __name__ == "__main__":
 
     project_root_name = os.path.basename(os.path.abspath(input_project))
     print_summaries_tree(project_root_name, all_summaries)
+    
+    
+if __name__ == "__main__":
+    main()

@@ -300,7 +300,7 @@ wheels = [
 [[package]]
 name = "utilscripts"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "ollama" },
@@ -309,7 +309,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.13.4" },
-    { name = "ollama", specifier = ">=0.4.8" },
-    { name = "requests", specifier = ">=2.32.3" },
+    { name = "beautifulsoup4", specifier = "==4.13.4" },
+    { name = "ollama", specifier = "==0.4.8" },
+    { name = "requests", specifier = "==2.32.3" },
 ]

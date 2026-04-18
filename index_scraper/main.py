@@ -20,7 +20,7 @@ def sanitize_filename(filename, default_name="downloaded_file.html"):
     return name
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Scrape an index site.")
     parser.add_argument(
         "--url", "-u", type=str, required=True, help="URL of the index site to scrape"
@@ -145,3 +145,7 @@ if __name__ == "__main__":
         finally:
             print("-" * 30)
     print(f"Finished processing {base_url}")
+
+
+if __name__ == "__main__":
+    main()
