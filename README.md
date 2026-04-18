@@ -12,6 +12,8 @@ within the same root directory.
 
 ```bash
 uv sync
+uv sync --extra index-scraper
+uv sync --extra all
 ```
 
 Adding dependencies to just one tool.
