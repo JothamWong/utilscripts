@@ -4,10 +4,19 @@ version = "0.1.0"
 description = "Utility scripts for stuff. One off python scripts"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
+dependencies = []
+
+[project.optional-dependencies]
+index-scraper = [
     "beautifulsoup4==4.13.4",
-    "ollama==0.4.8",
     "requests==2.32.3",
+]
+tree-summary = [
+    "ollama==0.4.8",
+]
+all = [
+    "utilscripts[index-scraper]",
+    "utilscripts[tree-summary]",
 ]
 
 [project.scripts]
