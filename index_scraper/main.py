@@ -6,6 +6,25 @@ from urllib.parse import unquote, urljoin, urlparse
 import bs4
 import requests
 
+DEFAULT_EXTENSIONS = "pdf,md"
+DEFAULT_FILENAME = "downloaded_file.html"
+CHUNK_SIZE = 8192
+REQUEST_TIMEOUT_PAGE = 10
+REQUEST_TIMEOUT_FILE = 20
+
+# Ignore Apache-style directory listings
+IGNORE_LINK_TEXTS = frozenset(
+    [
+        "Name",
+        "Last modified",
+        "Size",
+        "Description",
+        "Parent Directory",
+        "Parent directory",
+    ]
+)
+IGNORE_HREF_PATTERNS = ("?C=N", "?C=M", "?C=S", "?C=D")
+
 
 def sanitize_filename(filename, default_name="downloaded_file.html"):
     if not filename:
@@ -32,7 +51,7 @@ def main():
         type=str,
         required=False,
         help="File extensions to get, comma separated",
-        default="pdf,md",
+        default=DEFAULT_EXTENSIONS,
     )
     parser.add_argument(
         "--output_dir",
@@ -50,7 +69,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        response = requests.get(base_url, timeout=10)
+        response = requests.get(base_url, timeout=REQUEST_TIMEOUT_PAGE)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
@@ -58,22 +77,6 @@ def main():
 
     soup = bs4.BeautifulSoup(response.text, "html.parser")
     links = soup.find_all("a")
-
-    # Avoid downloading links that are part of the Apache-style directory listings
-    ignore_link_texts = [
-        "Name",
-        "Last modified",
-        "Size",
-        "Description",
-        "Parent Directory",
-        "Parent directory",
-    ]
-    ignore_href_patterns = [
-        "?C=N",  # Sort by Name
-        "?C=M",  # Sort by Modified date
-        "?C=S",  # Sort by Size
-        "?C=D",  # Sort by Description
-    ]
 
     for i, link_tag in enumerate(links):
         href = link_tag.get("href")
@@ -84,12 +87,12 @@ def main():
             print("No href found, skipping...")
             continue
 
-        if link_text in ignore_link_texts:
+        if link_text in IGNORE_LINK_TEXTS:
             print(f"Skipping link with text: {link_text}")
             continue
 
         matches_skip_href_pattern = any(
-            href.startswith(pattern) for pattern in ignore_href_patterns
+            href.startswith(pattern) for pattern in IGNORE_HREF_PATTERNS
         )
         if matches_skip_href_pattern:
             print(f"Skipping href with pattern: {href}")
@@ -117,7 +120,9 @@ def main():
 
         try:
             print(f"Trying to download {download_url} ({i + 1}/{len(links)})")
-            link_response = requests.get(download_url, timeout=20, stream=True)
+            link_response = requests.get(
+                download_url, timeout=REQUEST_TIMEOUT_FILE, stream=True
+            )
             link_response.raise_for_status()
             # Determine pathname for downloaded content
             path_component = parsed_download_url.path
@@ -136,7 +141,7 @@ def main():
                 )
                 counter += 1
             with open(final_output_path, "wb") as f:
-                for chunk in link_response.iter_content(chunk_size=8192):
+                for chunk in link_response.iter_content(chunk_size=CHUNK_SIZE):
                     f.write(chunk)
             print(f"Downloaded {download_url} to {final_output_path}")
         except requests.exceptions.RequestException as e:
