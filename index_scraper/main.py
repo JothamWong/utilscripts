@@ -1,9 +1,10 @@
 import argparse
-import requests
-import bs4
 import os
-from urllib.parse import urljoin, urlparse, unquote
 import re
+from urllib.parse import unquote, urljoin, urlparse
+
+import bs4
+import requests
 
 
 def sanitize_filename(filename, default_name="downloaded_file.html"):
@@ -26,7 +27,12 @@ def main():
         "--url", "-u", type=str, required=True, help="URL of the index site to scrape"
     )
     parser.add_argument(
-        "--extensions", "-e", type=str, required=False, help="File extensions to get, comma separated", default="pdf,md"
+        "--extensions",
+        "-e",
+        type=str,
+        required=False,
+        help="File extensions to get, comma separated",
+        default="pdf,md",
     )
     parser.add_argument(
         "--output_dir",
@@ -39,7 +45,7 @@ def main():
 
     base_url = args.url
     extensions = set(args.extensions.split(","))
-    
+
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
@@ -96,7 +102,7 @@ def main():
         if href.lower().startswith("javascript:"):
             print(f"Skipping javascript link: {href}")
             continue
-        
+
         if href.lower().split(".")[-1] not in extensions:
             print(f"Skipping due to extension: {href}")
             continue

@@ -1,11 +1,14 @@
 import argparse
-import os
 import logging
+import os
 
-from ollama import chat, ChatResponse
+from ollama import ChatResponse, chat
 
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 def _build_file_tree_from_summaries(summaries: dict) -> dict:
     """
@@ -76,11 +79,11 @@ def main():
     parser.add_argument(
         "--blacklist",
         "-bl",
-        nargs='+',
+        nargs="+",
         type=str,
         help="List of files to exclude from summarization",
     )
-    
+
     args = parser.parse_args()
 
     input_project = args.input_project
@@ -95,7 +98,7 @@ def main():
         )
         if is_hidden_dir:
             continue
-        
+
         logging.info(f"Processing directory: {dirpath}")
         for filename in filenames:
             if filename.startswith(".") or filename in blacklist:
@@ -151,7 +154,7 @@ def main():
 
     project_root_name = os.path.basename(os.path.abspath(input_project))
     print_summaries_tree(project_root_name, all_summaries)
-    
-    
+
+
 if __name__ == "__main__":
     main()
