@@ -2,6 +2,7 @@ import argparse
 import os
 import re
 from urllib.parse import unquote, urljoin, urlparse, ParseResult
+from pathlib import PurePosixPath
 
 import bs4
 import requests
@@ -47,6 +48,11 @@ def parse_args() -> argparse.Namespace:
         help="Path to the output dir to save the scraped data",
     )
     return parser.parse_args()
+
+
+def get_extension(href: str) -> str:
+    path = PurePosixPath(urlparse(href).path)
+    return path.suffix.lstrip(".").lower()
 
 
 def sanitize_filename(filename, default_name="downloaded_file.html"):
@@ -108,7 +114,7 @@ def filter_links(
             print(f"Skipping javascript link: {href}")
             continue
 
-        if href.lower().split(".")[-1] not in extensions:
+        if get_extension(href) not in extensions:
             print(f"Skipping due to extension: {href}")
             continue
 
@@ -158,17 +164,17 @@ def download_file(url: ParseResult, output_dir: str) -> None:
 
 def main():
     args = parse_args()
-    
+
     base_url = args.url
     soup = fetch_page(base_url)
-    
+
     links = soup.find_all("a")
     extensions = set(args.extensions.split(","))
     hrefs = filter_links(links, extensions)
-    
+
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
-    
+
     for href in hrefs:
         download_url = urljoin(args.url, href)
         parsed_download_url = urlparse(download_url)
