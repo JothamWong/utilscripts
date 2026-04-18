@@ -26,6 +26,8 @@ IGNORE_LINK_TEXTS = frozenset(
 )
 IGNORE_HREF_PATTERNS = ("?C=N", "?C=M", "?C=S", "?C=D")
 
+USER_AGENT = "IndexScraper/1.0"
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Scrape an index site.")
@@ -69,9 +71,9 @@ def sanitize_filename(filename, default_name="downloaded_file.html"):
     return name
 
 
-def fetch_page(url: str) -> bs4.BeautifulSoup:
+def fetch_page(session: requests.Session, url: str) -> bs4.BeautifulSoup:
     try:
-        response = requests.get(url, timeout=REQUEST_TIMEOUT_PAGE)
+        response = session.get(url, timeout=REQUEST_TIMEOUT_PAGE)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"Error fetching the URL: {e}")
@@ -123,12 +125,12 @@ def filter_links(
     return hrefs
 
 
-def download_file(url: ParseResult, output_dir: str) -> None:
+def download_file(session: requests.Session, url: ParseResult, output_dir: str) -> None:
     if url.scheme not in ["http", "https"]:
         return
     download_url = url.geturl()
     try:
-        link_response = requests.get(
+        link_response = session.get(
             download_url, timeout=REQUEST_TIMEOUT_FILE, stream=True
         )
         link_response.raise_for_status()
@@ -166,21 +168,24 @@ def main():
     args = parse_args()
 
     base_url = args.url
-    soup = fetch_page(base_url)
 
-    links = soup.find_all("a")
-    extensions = set(args.extensions.split(","))
-    hrefs = filter_links(links, extensions)
+    with requests.Session() as session:
+        session.headers.update({"User-Agent": USER_AGENT})
+        soup = fetch_page(session, base_url)
 
-    output_dir = args.output_dir
-    os.makedirs(output_dir, exist_ok=True)
+        links = soup.find_all("a")
+        extensions = set(args.extensions.split(","))
+        hrefs = filter_links(links, extensions)
 
-    for href in hrefs:
-        download_url = urljoin(args.url, href)
-        parsed_download_url = urlparse(download_url)
-        download_file(parsed_download_url, output_dir)
+        output_dir = args.output_dir
+        os.makedirs(output_dir, exist_ok=True)
 
-    print(f"Finished processing {base_url}")
+        for href in hrefs:
+            download_url = urljoin(args.url, href)
+            parsed_download_url = urlparse(download_url)
+            download_file(session, parsed_download_url, output_dir)
+
+        print(f"Finished processing {base_url}")
 
 
 if __name__ == "__main__":
